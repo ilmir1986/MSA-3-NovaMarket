@@ -1,0 +1,45 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' Контекст: NovaMarket — оформление заказа
+Person(purchaser, "Покупатель", "Создаёт заказ через мобильное приложение")
+Person(seller, "Продавец", "Получает уведомления о новых заказах")
+
+System_Boundary(b0, "NovaMarket") {
+    Container(order, "Order Service", "Java, Spring Boot", "Управляет жизненным циклом заказа: создание, статусы, отмена")
+    Container(inventory, "Inventory Service", "Java, Spring Boot", "Резервирует и освобождает товары на складе")
+    Container(payment, "Payment Service", "Java, Spring Boot", "Обрабатывает оплату и возврат средств через внешний шлюз")
+    Container(delivery, "Delivery Service", "Java, Spring Boot", "Интеграция с логистическим провайдером: создание заявки, трекинг, завершение")
+    Container(notification, "Notification Service", "Java, Spring Boot", "Отправляет уведомления покупателю и продавцу")
+}
+
+' Взаимодействия через события (EDA)
+Rel(purchaser, order, "Создать заказ", "HTTPS")
+
+' Order → Inventory
+Rel(order, inventory, "Событие: ORDER_CREATED")
+
+' Inventory → Payment
+Rel(inventory, payment, "Событие: INVENTORY_RESERVED")
+
+' Payment → Delivery
+Rel(payment, delivery, "Событие: PAYMENT_PROCESSED")
+
+' Delivery → Order (завершение)
+Rel(delivery, order, "Событие: DELIVERY_COMPLETED")
+
+' Компенсации (failure → compensation chain)
+Rel(payment, inventory, "Событие: PAYMENT_FAILED")
+Rel(delivery, payment, "Событие: DELIVERY_SCHEDULING_FAILED")
+
+' Уведомления
+Rel(order, notification, "Событие: ORDER_CREATED\nORDER_CANCELLED\nORDER_COMPLETED")
+Rel(delivery, notification, "Событие: DELIVERY_SCHEDULED")
+
+Rel(notification, purchaser, "Email/SMS", "SMTP / SMS API")
+Rel(notification, seller, "Email", "SMTP")
+
+' Статус-трекинг (неявный, но важный)
+Rel(purchaser, order, "Получить статус заказа", "HTTPS")
+
+@enduml

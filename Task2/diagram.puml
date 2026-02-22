@@ -1,0 +1,31 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(purchaser, "Покупатель", "Просматривает историю заказов через мобильное приложение")
+
+System_Boundary(b0, "NovaMarket") {
+    Container(mobile_app, "Mobile App", "Frontend", "Отображает список и детали заказов, позволяет скачать чек, оставить отзыв, повторить заказ")
+
+    Container(order, "Order Service", "Java, Spring Boot", "Хранит метаданные заказа: ID, статус, дата, сумма, способ доставки/оплаты")
+    Container(inventory, "Inventory Service", "Java, Spring Boot", "Хранит состав заказа: товары, количество, цена на момент покупки")
+    Container(payment, "Payment Service", "Java, Spring Boot", "Хранит данные об оплате: метод, транзакции, чек")
+    Container(delivery, "Delivery Service", "Java, Spring Boot", "Хранит данные о доставке: трек-номер, провайдер, статус")
+
+    Container(order_view, "Order View Service", "Java, Spring Boot", "CQRS Read Model: агрегирует данные из всех сервисов для отображения истории заказов")
+}
+
+' Взаимодействия
+Rel(purchaser, mobile_app, "Запросить историю заказов", "HTTPS")
+Rel(mobile_app, order_view, "GET /orders?userId={id}", "HTTPS")
+
+' Order View Service подписывается на события
+Rel_R(order, order_view, "Событие:  ORDER_CREATED\n ORDER_COMPLETED\n ORDER_CANCELLED")
+Rel_R(inventory, order_view, "Событие:  INVENTORY_RESERVED")
+Rel_R(payment, order_view, "Событие:  PAYMENT_PROCESSED")
+Rel_R(delivery, order_view, "Событие:  DELIVERY_SCHEDULED\n DELIVERY_COMPLETED")
+
+' Order View Service хранит денормализованную копию
+ContainerDb(order_view_db, "Order View DB", "PostgreSQL", "Денормализованная таблица заказов с полной информацией")
+Rel(order_view, order_view_db, "Чтение/Запись", "JDBC")
+
+@enduml
